@@ -56,8 +56,10 @@ func main() {
 	// Protected route exercising the JWT guard: returns the caller's identity.
 	mux.HandleFunc("GET /me", middleware.Auth(cfg.JWTSecret, meHandler))
 
-	// Wallet: vulnerable balance baseline, behind the JWT guard.
+	// Wallet: both variants sit behind the JWT guard so the caller is always
+	// authenticated. Only the fixed variant additionally enforces ownership.
 	mux.HandleFunc("GET /vuln/wallet", middleware.Auth(cfg.JWTSecret, walletH.VulnerableBalance))
+	mux.HandleFunc("GET /safe/wallet", middleware.Auth(cfg.JWTSecret, walletH.FixedBalance))
 
 	// Transaction (debit): vulnerable baseline; races under concurrency.
 	mux.HandleFunc("POST /vuln/transaction", middleware.Auth(cfg.JWTSecret, txH.VulnerableDebit))
