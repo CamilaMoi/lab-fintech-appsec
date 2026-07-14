@@ -1,0 +1,38 @@
+name: security
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write # required to upload SARIF to the code-scanning tab
+
+jobs:
+  gosec:
+    name: gosec SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      # -no-fail keeps the job green so the SARIF upload step always runs. The
+      # findings are intentional and live in the *vulnerable* handlers; they
+      # surface as alerts in the repository Security tab rather than as a red
+      # build. This mirrors how a real security gate reports SAST results.
+      - name: Run gosec (SARIF)
+        run: gosec -no-fail -fmt sarif -out gosec.sarif ./...
+
+      - name: Print findings to the build log
+        run: gosec -no-fail -fmt text ./...
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gosec.sarif
