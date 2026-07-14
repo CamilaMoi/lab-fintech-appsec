@@ -11,6 +11,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/CamilaMoi/lab-fintech-appsec/internal/auth"
+	"github.com/CamilaMoi/lab-fintech-appsec/internal/middleware"
+	"github.com/CamilaMoi/lab-fintech-appsec/internal/transaction"
+	"github.com/CamilaMoi/lab-fintech-appsec/internal/wallet"
 	"github.com/CamilaMoi/lab-fintech-appsec/pkg/config"
 	"github.com/CamilaMoi/lab-fintech-appsec/pkg/models"
 )
@@ -22,6 +26,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("init store: %v", err)
 	}
+
+	authH := auth.NewHandler(store, cfg.JWTSecret)
+	walletH := wallet.NewHandler(store)
+	txH := transaction.NewHandler(store)
 
 	mux := http.NewServeMux()
 
@@ -40,6 +48,18 @@ func main() {
 		})
 	})
 
+	// Auth: vulnerable login baseline. The hardened variant is added later.
+	mux.HandleFunc("POST /vuln/login", authH.VulnerableLogin)
+
+	// Protected route exercising the JWT guard: returns the caller's identity.
+	mux.HandleFunc("GET /me", middleware.Auth(cfg.JWTSecret, meHandler))
+
+	// Wallet: vulnerable balance baseline, behind the JWT guard.
+	mux.HandleFunc("GET /vuln/wallet", middleware.Auth(cfg.JWTSecret, walletH.VulnerableBalance))
+
+	// Transaction (debit): vulnerable baseline; races under concurrency.
+	mux.HandleFunc("POST /vuln/transaction", middleware.Auth(cfg.JWTSecret, txH.VulnerableDebit))
+
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
 		Handler:           mux,
@@ -50,6 +70,19 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("server stopped: %v", err)
 	}
+}
+
+// meHandler echoes the authenticated principal extracted from the JWT.
+func meHandler(w http.ResponseWriter, r *http.Request) {
+	u, ok := middleware.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"no user in context"}`, http.StatusUnauthorized)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user_id":  u.ID,
+		"username": u.Username,
+	})
 }
 
 // writeJSON is the single JSON response helper shared by all handlers.
