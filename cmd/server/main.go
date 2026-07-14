@@ -61,8 +61,10 @@ func main() {
 	mux.HandleFunc("GET /vuln/wallet", middleware.Auth(cfg.JWTSecret, walletH.VulnerableBalance))
 	mux.HandleFunc("GET /safe/wallet", middleware.Auth(cfg.JWTSecret, walletH.FixedBalance))
 
-	// Transaction (debit): vulnerable baseline; races under concurrency.
+	// Transaction (debit): the vulnerable variant races under concurrency; the
+	// fixed variant debits atomically. Both require authentication.
 	mux.HandleFunc("POST /vuln/transaction", middleware.Auth(cfg.JWTSecret, txH.VulnerableDebit))
+	mux.HandleFunc("POST /safe/transaction", middleware.Auth(cfg.JWTSecret, txH.FixedDebit))
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
