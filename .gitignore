@@ -1,0 +1,11 @@
+# build output
+/server
+/lab-fintech-appsec
+*.exe
+
+# gosec / CI artifacts
+gosec.sarif
+*.sarif
+
+# local env
+.env
