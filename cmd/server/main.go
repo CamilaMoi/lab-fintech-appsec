@@ -48,8 +48,10 @@ func main() {
 		})
 	})
 
-	// Auth: vulnerable login baseline. The hardened variant is added later.
+	// Auth: the vulnerable and fixed logins are exposed side by side so their
+	// behavior can be compared against the same seed data.
 	mux.HandleFunc("POST /vuln/login", authH.VulnerableLogin)
+	mux.HandleFunc("POST /safe/login", authH.FixedLogin)
 
 	// Protected route exercising the JWT guard: returns the caller's identity.
 	mux.HandleFunc("GET /me", middleware.Auth(cfg.JWTSecret, meHandler))
